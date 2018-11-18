@@ -1,0 +1,28 @@
+#rsyslog with low privileges on debian stretch
+
+#add new system user (and group)
+useradd --system --no-create-home --shell /usr/sbin/nologin syslog
+
+
+#modify /etc/rsyslog.conf
+
+$FileOwner syslog
+$FileGroup adm
+$PrivDropToUser syslog
+$PrivDropToUser syslog
+
+chown -R syslog:adm /var/spool/rsyslog
+chown syslog:adm /var/log/auth.log
+chown syslog:adm /var/log/kern.log
+chown syslog:adm /var/log/syslog
+...
+#change permissions on all logfiles that rsyslog is supposed to access
+
+
+#new versions of rsyslog may not need to have permissions to read the keyfiles
+# on stretch rsyslog still need access to those keys
+chown root:syslog /etc/ssl/private
+chown root:syslog /etc/ssl/private/rsyslog.key
+
+chmod 750 /etc/ssl/private
+chmod 640 /etc/ssl/private/rsyslog.key

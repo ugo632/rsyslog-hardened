@@ -1,0 +1,64 @@
+## SERVER
+
+# create selfsigned key/cert
+openssl req --newkey rsa:4096 -nodes -keyout /etc/ssl/private/rsyslog.key -x509 -days 5000 -out /etc/ssl/certs/rsyslog.crt
+
+#modify /etc/rsyslog.conf
+
+global(
+  DefaultNetstreamDriver="ptcp"
+  DefaultNetstreamDriverCaFile="/etc/ssl/certs/rsyslog.crt"
+  DefaultNetstreamDriverCertFile="/etc/ssl/certs/rsyslog.crt"
+  DefaultNetstreamDriverKeyFile="/etc/ssl/private/rsyslog.key"
+)
+
+# plain UDP syslog
+module(load="imudp")
+
+# plain TCP syslog
+module(load="imptcp")
+
+# encrypted TCP syslog
+module(
+  load="imtcp"
+  streamDriver.name="gtls"
+  streamDriver.mode="1"
+  streamDriver.authMode="anon" # Clients do not need to authenticate themselfs
+  )
+
+# open UDP/514 for plaintext UDP connections
+input(type="imudp" port="514")
+
+# open TCP/514 for plaintext TCP connections
+input(type="imptcp" port="514")
+
+# open TCP/1514 for encrypted TLS connections
+input(type="imtcp" port="1514" name="tls")
+
+
+# forward logs as proxy (using plain TCP)
+*.* @@<IPADDRESS TO TARGET SERVER>:514 
+
+
+############################################
+## CLIENT
+# add server cert to client
+
+#modify /etc/rsyslog.conf
+
+global(
+  DefaultNetstreamDriver="gtls"
+  DefaultNetstreamDriverCaFile="/etc/ssl/certs/rsyslog.crt"
+)
+
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCaFile /etc/ssl/certs/rsyslog.crt
+
+$ActionSendStreamDriverAuthMode x509/name
+$ActionSendStreamDriverPermittedPeer <IP OF SYSLOG SERVER>
+$ActionSendStreamDriverMode 1 # Enforce TLS
+
+*.* @@<IP OF SYSLOG SERVER>:1514
+
+
+# Note: Clients do not authenticate themselfs with this configuration, only the server has a valid certificate
